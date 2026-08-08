@@ -6,9 +6,9 @@ export default async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: "Server is missing ANTHROPIC_API_KEY. Add it in your Vercel project's Environment Variables." });
+    res.status(500).json({ error: "Server is missing GEMINI_API_KEY. Add it in your Vercel project's Environment Variables." });
     return;
   }
 
@@ -21,32 +21,26 @@ export default async function handler(req, res) {
   try {
     const prompt = buildActionPrompt(opportunity, answers);
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1600,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Anthropic API error:", response.status, errText);
+      console.error("Gemini API error:", response.status, errText);
       res.status(502).json({ error: "The AI service returned an error. Try again in a moment." });
       return;
     }
 
     const data = await response.json();
-    const text = (data.content || [])
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("\n");
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     const clean = text.replace(/```json|```/g, "").trim();
 
     let parsed;
