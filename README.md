@@ -6,6 +6,7 @@ opportunity into a checklist, ready-to-send templates, and a timeline.
 
 ## Project structure (copy exactly this layout)
 
+
 ```
 income-button-ai/
 ├── api/                          ← Vercel serverless functions (server-side only)
