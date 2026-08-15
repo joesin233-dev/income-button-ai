@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   MapPin, DollarSign, Clock, Smartphone, Sparkles, CheckCircle2, Circle,
   TrendingUp, ArrowRight, Plus, Wrench, Car, Wifi, Laptop, Target, Flame,
-  ChevronRight, ThumbsUp, ThumbsDown, Rocket, CalendarClock,
+  ChevronRight, ThumbsUp, ThumbsDown, Rocket, CalendarClock, Hammer,
 } from "lucide-react";
 
 import PowerButton from "./components/PowerButton.jsx";
@@ -13,7 +13,7 @@ import DifficultyBadge from "./components/DifficultyBadge.jsx";
 import TemplateCard from "./components/TemplateCard.jsx";
 import { SectionLabel, StatCard, EmptyNote } from "./components/Misc.jsx";
 
-import { generatePlan, generateActionPlan } from "./lib/api.js";
+import { generatePlan, generateActionPlan, generateMarketingCopy } from "./lib/api.js";
 import { getState, setState as persistState } from "./lib/storage.js";
 
 const EQUIPMENT_OPTIONS = [
@@ -49,12 +49,17 @@ export default function App() {
   const [error, setError] = useState(null);
 
   // Action Mode + success tracking
-  const [startedOpportunities, setStartedOpportunities] = useState([]); // [{ index, title, startedAt }]
-  const [actionPlans, setActionPlans] = useState({}); // { [index]: { firstTaskToday, checklist, templates, timeline } }
+  const [startedOpportunities, setStartedOpportunities] = useState([]);
+  const [actionPlans, setActionPlans] = useState({});
   const [activeOppIndex, setActiveOppIndex] = useState(null);
   const [actionError, setActionError] = useState(null);
-  const [reflections, setReflections] = useState([]); // [{ id, type: 'worked'|'failed', text, date }]
+  const [reflections, setReflections] = useState([]);
   const [reflectionInput, setReflectionInput] = useState({ type: "worked", text: "" });
+
+  // Build It / Marketing Copy
+  const [marketingCopyMap, setMarketingCopyMap] = useState({});
+  const [activeMarketingIndex, setActiveMarketingIndex] = useState(null);
+  const [marketingError, setMarketingError] = useState(null);
 
   const chargeTimer = useRef(null);
 
@@ -73,6 +78,7 @@ export default function App() {
       if (saved.startedOpportunities) setStartedOpportunities(saved.startedOpportunities);
       if (saved.actionPlans) setActionPlans(saved.actionPlans);
       if (saved.reflections) setReflections(saved.reflections);
+      if (saved.marketingCopyMap) setMarketingCopyMap(saved.marketingCopyMap);
       if (saved.plan) setScreen("results");
     })();
   }, []);
@@ -80,7 +86,7 @@ export default function App() {
   const persist = async (patch) => {
     await persistState({
       plan, tasks, earnings, answers, paymentMethod,
-      startedOpportunities, actionPlans, reflections,
+      startedOpportunities, actionPlans, reflections, marketingCopyMap,
       ...patch,
     });
   };
@@ -138,9 +144,10 @@ export default function App() {
       setTasks(newTasks);
       setStartedOpportunities([]);
       setActionPlans({});
+      setMarketingCopyMap({});
       setStep(0);
       setScreen("results");
-      await persist({ plan: result, tasks: newTasks, answers, startedOpportunities: [], actionPlans: {} });
+      await persist({ plan: result, tasks: newTasks, answers, startedOpportunities: [], actionPlans: {}, marketingCopyMap: {} });
     } catch (e) {
       console.error(e);
       setError(e.message || "Couldn't reach the AI just now. Your answers are saved — try again.");
@@ -192,6 +199,30 @@ export default function App() {
     const nextActionPlans = { ...actionPlans, [index]: { ...ap, checklist: updatedChecklist } };
     setActionPlans(nextActionPlans);
     await persist({ actionPlans: nextActionPlans });
+  };
+
+  // ---------------- Build It / Marketing Copy ----------------
+  const buildMarketingCopy = async (index) => {
+    const opportunity = plan.opportunities[index];
+    setActiveMarketingIndex(index);
+    setMarketingError(null);
+    setScreen("marketingLoading");
+    try {
+      const result = await generateMarketingCopy(opportunity, answers);
+      const nextMap = { ...marketingCopyMap, [index]: result };
+      setMarketingCopyMap(nextMap);
+      await persist({ marketingCopyMap: nextMap });
+      setScreen("marketing");
+    } catch (e) {
+      console.error(e);
+      setMarketingError(e.message || "Couldn't build your marketing copy just now. Try again.");
+      setScreen("results");
+    }
+  };
+
+  const openMarketing = (index) => {
+    setActiveMarketingIndex(index);
+    setScreen("marketing");
   };
 
   const addEarning = async () => {
@@ -265,9 +296,9 @@ export default function App() {
 
       {screen === "igniting" && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22 }}>
-          <ChargeRing percent={chargePercent} label={chargePercent < 100 ? "CHARGING" : "IGNITED"} />
+          <ChargeRing percent={chargePercent} label={chargePercent < 100  ? "CHARGING" : "IGNITED"} />
           <p style={{ color: "#8AA396", fontSize: 13, fontFamily: "JetBrains Mono", letterSpacing: 1 }}>
-            {chargePercent < 40 ? "Reading your signal…" : chargePercent < 80 ? "Scanning opportunities…" : "Locking it in…"}
+            {chargePercent < 40  ? "Reading your signal…" : chargePercent < 80 ? "Scanning opportunities…" : "Locking it in…"}
           </p>
         </div>
       )}
@@ -379,6 +410,11 @@ export default function App() {
                 {actionError}
               </div>
             )}
+            {marketingError && (
+              <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 12.5, color: "#FCA5A5" }}>
+                {marketingError}
+              </div>
+            )}
 
             {plan.realityCheck && (
               <div style={{ marginBottom: 20 }}>
@@ -426,6 +462,7 @@ export default function App() {
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
               {plan.opportunities?.map((op, i) => {
                 const started = startedOpportunities.some((s) => s.index === i);
+                const hasMarketing = !!marketingCopyMap[i];
                 return (
                   <div key={i} style={{ background: "#0F241B", border: "1px solid rgba(234,242,236,0.08)", borderRadius: 14, padding: 16 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
@@ -451,6 +488,20 @@ export default function App() {
                     >
                       <Rocket size={15} />
                       {started ? "Continue this path" : "Start This Income Path"}
+                    </button>
+                    <button
+                      onClick={() => (hasMarketing ? openMarketing(i) : buildMarketingCopy(i))}
+                      style={{
+                        marginTop: 8, width: "100%", padding: "12px", borderRadius: 12,
+                        border: "1px solid rgba(255,210,63,0.3)",
+                        background: hasMarketing ? "rgba(255,210,63,0.1)" : "transparent",
+                        color: "#FFD23F",
+                        fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 13.5,
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer",
+                      }}
+                    >
+                      <Hammer size={15} />
+                      {hasMarketing ? "View your marketing copy" : "Build It — get marketing copy"}
                     </button>
                   </div>
                 );
@@ -502,6 +553,46 @@ export default function App() {
             Today's task, a checklist, and ready-to-send templates — coming up.
           </p>
         </div>
+      )}
+
+      {screen === "marketingLoading" && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
+          <Spinner />
+          <p style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 16 }}>Building your marketing copy…</p>
+          <p style={{ color: "#8AA396", fontSize: 13, maxWidth: 260, textAlign: "center" }}>
+            A WhatsApp ad, a post, and a description — ready to copy and send.
+          </p>
+        </div>
+      )}
+
+      {screen === "marketing" && activeMarketingIndex !== null && marketingCopyMap[activeMarketingIndex] && plan && (
+        <>
+          <TopBar title="Your marketing copy" onBack={() => setScreen("results")} />
+          <div className="fu" style={{ flex: 1, padding: "6px 20px 24px" }}>
+            <SectionLabel text="WhatsApp message" />
+            <div style={{ marginBottom: 22 }}>
+              <TemplateCard name="Send to buyers" content={marketingCopyMap[activeMarketingIndex].whatsappAd} />
+            </div>
+
+            <SectionLabel text="Facebook post" />
+            <div style={{ marginBottom: 22 }}>
+              <TemplateCard name="Post on Facebook" content={marketingCopyMap[activeMarketingIndex].facebookPost} />
+            </div>
+
+            <SectionLabel text="Product description" />
+            <div style={{ marginBottom: 22 }}>
+              <TemplateCard name="Use anywhere" content={marketingCopyMap[activeMarketingIndex].productDescription} />
+            </div>
+
+            <button
+              onClick={() => setScreen("results")}
+              style={{ marginTop: 4, width: "100%", padding: "16px", borderRadius: 14, border: "none", background: "#22C55E", color: "#081410", fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer" }}
+            >
+              Back to your path <ArrowRight size={17} />
+            </button>
+          </div>
+          <BottomNav screen={screen} setScreen={setScreen} hasPlan={!!plan} />
+        </>
       )}
 
       {screen === "action" && activeOppIndex !== null && actionPlans[activeOppIndex] && plan && (
