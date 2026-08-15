@@ -79,3 +79,25 @@ Respond with ONLY valid JSON, no markdown fences, no preamble, matching this exa
 }
 Give 6-10 checklist items, 3-4 templates covering things like an outreach/DM message, a service or offer description, and a pricing/offer example, and 3-5 timeline phases sized to their stated timeframe.`;
 }
+
+export function buildMarketingCopyPrompt(opportunity, answers) {
+  return `Someone needs simple marketing content to help them sell or promote their income opportunity. Write like you're helping a friend, not writing a business report.
+
+Their opportunity: ${opportunity.title}
+Country: ${answers.country}
+Skills: ${answers.skills}
+
+Hard rules:
+- Use short sentences. One idea per sentence.
+- No jargon — no words like "leverage," "optimize," "monetize," "scalable." Use plain words: sell, make, start, earn.
+- Write like you're talking to a friend on the street, not a business report.
+- Content must be ready to copy and paste exactly as-is.
+- Keep it short — people scroll fast on WhatsApp and social media.
+
+Respond with ONLY valid JSON, no markdown fences, no preamble, matching this exact shape:
+{
+  "whatsappAd": "a short, friendly WhatsApp message someone could send to sell this, under 50 words",
+  "facebookPost": "a short Facebook post promoting this, under 60 words, simple language",
+  "productDescription": "a short description of the product or service, under 40 words, plain language"
+}`;
+}
