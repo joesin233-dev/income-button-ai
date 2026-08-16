@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   MapPin, DollarSign, Clock, Smartphone, Sparkles, CheckCircle2, Circle,
   TrendingUp, ArrowRight, Plus, Wrench, Car, Wifi, Laptop, Target, Flame,
-  ChevronRight, ThumbsUp, ThumbsDown, Rocket, CalendarClock, Hammer,
+  ChevronRight, ThumbsUp, ThumbsDown, Rocket, CalendarClock, Hammer, Store,
 } from "lucide-react";
 
 import PowerButton from "./components/PowerButton.jsx";
@@ -13,7 +13,7 @@ import DifficultyBadge from "./components/DifficultyBadge.jsx";
 import TemplateCard from "./components/TemplateCard.jsx";
 import { SectionLabel, StatCard, EmptyNote } from "./components/Misc.jsx";
 
-import { generatePlan, generateActionPlan, generateMarketingCopy } from "./lib/api.js";
+import { generatePlan, generateActionPlan, generateMarketingCopy, generateBusinessStarter } from "./lib/api.js";
 import { getState, setState as persistState } from "./lib/storage.js";
 
 const EQUIPMENT_OPTIONS = [
@@ -61,6 +61,11 @@ export default function App() {
   const [activeMarketingIndex, setActiveMarketingIndex] = useState(null);
   const [marketingError, setMarketingError] = useState(null);
 
+  // Business Starter
+  const [businessStarterMap, setBusinessStarterMap] = useState({});
+  const [activeBusinessIndex, setActiveBusinessIndex] = useState(null);
+  const [businessError, setBusinessError] = useState(null);
+
   const chargeTimer = useRef(null);
 
   useEffect(() => {
@@ -79,6 +84,7 @@ export default function App() {
       if (saved.actionPlans) setActionPlans(saved.actionPlans);
       if (saved.reflections) setReflections(saved.reflections);
       if (saved.marketingCopyMap) setMarketingCopyMap(saved.marketingCopyMap);
+      if (saved.businessStarterMap) setBusinessStarterMap(saved.businessStarterMap);
       if (saved.plan) setScreen("results");
     })();
   }, []);
@@ -86,7 +92,7 @@ export default function App() {
   const persist = async (patch) => {
     await persistState({
       plan, tasks, earnings, answers, paymentMethod,
-      startedOpportunities, actionPlans, reflections, marketingCopyMap,
+      startedOpportunities, actionPlans, reflections, marketingCopyMap, businessStarterMap,
       ...patch,
     });
   };
@@ -145,9 +151,10 @@ export default function App() {
       setStartedOpportunities([]);
       setActionPlans({});
       setMarketingCopyMap({});
+      setBusinessStarterMap({});
       setStep(0);
       setScreen("results");
-      await persist({ plan: result, tasks: newTasks, answers, startedOpportunities: [], actionPlans: {}, marketingCopyMap: {} });
+      await persist({ plan: result, tasks: newTasks, answers, startedOpportunities: [], actionPlans: {}, marketingCopyMap: {}, businessStarterMap: {} });
     } catch (e) {
       console.error(e);
       setError(e.message || "Couldn't reach the AI just now. Your answers are saved — try again.");
@@ -223,6 +230,30 @@ export default function App() {
   const openMarketing = (index) => {
     setActiveMarketingIndex(index);
     setScreen("marketing");
+  };
+
+  // ---------------- Business Starter ----------------
+  const buildBusinessStarter = async (index) => {
+    const opportunity = plan.opportunities[index];
+    setActiveBusinessIndex(index);
+    setBusinessError(null);
+    setScreen("businessLoading");
+    try {
+      const result = await generateBusinessStarter(opportunity, answers);
+      const nextMap = { ...businessStarterMap, [index]: result };
+      setBusinessStarterMap(nextMap);
+      await persist({ businessStarterMap: nextMap });
+      setScreen("business");
+    } catch (e) {
+      console.error(e);
+      setBusinessError(e.message || "Couldn't build your business starter kit just now. Try again.");
+      setScreen("results");
+    }
+  };
+
+  const openBusiness = (index) => {
+    setActiveBusinessIndex(index);
+    setScreen("business");
   };
 
   const addEarning = async () => {
@@ -415,6 +446,11 @@ export default function App() {
                 {marketingError}
               </div>
             )}
+            {businessError && (
+              <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 12.5, color: "#FCA5A5" }}>
+                {businessError}
+              </div>
+            )}
 
             {plan.realityCheck && (
               <div style={{ marginBottom: 20 }}>
@@ -463,6 +499,7 @@ export default function App() {
               {plan.opportunities?.map((op, i) => {
                 const started = startedOpportunities.some((s) => s.index === i);
                 const hasMarketing = !!marketingCopyMap[i];
+                const hasBusiness = !!businessStarterMap[i];
                 return (
                   <div key={i} style={{ background: "#0F241B", border: "1px solid rgba(234,242,236,0.08)", borderRadius: 14, padding: 16 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
@@ -502,6 +539,20 @@ export default function App() {
                     >
                       <Hammer size={15} />
                       {hasMarketing ? "View your marketing copy" : "Build It — get marketing copy"}
+                    </button>
+                    <button
+                      onClick={() => (hasBusiness ? openBusiness(i) : buildBusinessStarter(i))}
+                      style={{
+                        marginTop: 8, width: "100%", padding: "12px", borderRadius: 12,
+                        border: "1px solid rgba(94,197,197,0.35)",
+                        background: hasBusiness ? "rgba(94,197,197,0.1)" : "transparent",
+                        color: "#5EC5C5",
+                        fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 13.5,
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer",
+                      }}
+                    >
+                      <Store size={15} />
+                      {hasBusiness ? "View your business starter kit" : "Turn into a business"}
                     </button>
                   </div>
                 );
@@ -565,6 +616,16 @@ export default function App() {
         </div>
       )}
 
+      {screen === "businessLoading" && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
+          <Spinner />
+          <p style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 16 }}>Building your business starter kit…</p>
+          <p style={{ color: "#8AA396", fontSize: 13, maxWidth: 260, textAlign: "center" }}>
+            Names, pricing, how to get paid, and your first customers — coming up.
+          </p>
+        </div>
+      )}
+
       {screen === "marketing" && activeMarketingIndex !== null && marketingCopyMap[activeMarketingIndex] && plan && (
         <>
           <TopBar title="Your marketing copy" onBack={() => setScreen("results")} />
@@ -582,6 +643,66 @@ export default function App() {
             <SectionLabel text="Product description" />
             <div style={{ marginBottom: 22 }}>
               <TemplateCard name="Use anywhere" content={marketingCopyMap[activeMarketingIndex].productDescription} />
+            </div>
+
+            <button
+              onClick={() => setScreen("results")}
+              style={{ marginTop: 4, width: "100%", padding: "16px", borderRadius: 14, border: "none", background: "#22C55E", color: "#081410", fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer" }}
+            >
+              Back to your path <ArrowRight size={17} />
+            </button>
+          </div>
+          <BottomNav screen={screen} setScreen={setScreen} hasPlan={!!plan} />
+        </>
+      )}
+
+      {screen === "business" && activeBusinessIndex !== null && businessStarterMap[activeBusinessIndex] && plan && (
+        <>
+          <TopBar title="Your business starter kit" onBack={() => setScreen("results")} />
+          <div className="fu" style={{ flex: 1, padding: "6px 20px 24px" }}>
+            <SectionLabel text="Name ideas" />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+              {businessStarterMap[activeBusinessIndex].businessNames?.map((n, i) => (
+                <span key={i} style={{ fontSize: 13, background: "#0F241B", border: "1px solid rgba(94,197,197,0.3)", padding: "8px 14px", borderRadius: 20, color: "#5EC5C5", fontFamily: "Space Grotesk", fontWeight: 700 }}>
+                  {n}
+                </span>
+              ))}
+            </div>
+
+            <SectionLabel text="What you need to start" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+              {businessStarterMap[activeBusinessIndex].whatYouNeed?.map((w, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#0F241B", border: "1px solid rgba(234,242,236,0.08)", borderRadius: 12, padding: 13 }}>
+                  <CheckCircle2 size={16} color="#5EC5C5" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>{w}</span>
+                </div>
+              ))}
+            </div>
+
+            <SectionLabel text="How to price it" />
+            <div style={{ background: "#0F241B", border: "1px solid rgba(234,242,236,0.1)", borderRadius: 14, padding: 16, marginBottom: 22 }}>
+              <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: 0 }}>{businessStarterMap[activeBusinessIndex].howToPrice}</p>
+            </div>
+
+            <SectionLabel text="How to get paid" />
+            <div style={{ background: "#0F241B", border: "1px solid rgba(234,242,236,0.1)", borderRadius: 14, padding: 16, marginBottom: 22 }}>
+              <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: 0 }}>{businessStarterMap[activeBusinessIndex].howToGetPaid}</p>
+            </div>
+
+            <SectionLabel text="Getting your first 3 customers" />
+            <div style={{ background: "#0F241B", border: "1px solid rgba(255,210,63,0.25)", borderRadius: 14, padding: 16, marginBottom: 22, display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <Target size={18} color="#FFD23F" style={{ marginTop: 2, flexShrink: 0 }} />
+              <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: 0 }}>{businessStarterMap[activeBusinessIndex].firstThreeCustomers}</p>
+            </div>
+
+            <SectionLabel text="Simple rules to keep it honest" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+              {businessStarterMap[activeBusinessIndex].simpleRules?.map((r, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#0F241B", border: "1px solid rgba(234,242,236,0.08)", borderRadius: 12, padding: 13 }}>
+                  <Store size={15} color="#5EC5C5" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>{r}</span>
+                </div>
+              ))}
             </div>
 
             <button
