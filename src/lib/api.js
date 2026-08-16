@@ -22,3 +22,7 @@ export function generatePlan(answers) {
 export function generateActionPlan(opportunity, answers) {
   return postJSON("/api/generate-action-plan", { opportunity, answers });
 }
+
+export function generateMarketingCopy(opportunity, answers) {
+  return postJSON("/api/generate-marketing-copy", { opportunity, answers });
+}
