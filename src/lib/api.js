@@ -26,3 +26,7 @@ export function generateActionPlan(opportunity, answers) {
 export function generateMarketingCopy(opportunity, answers) {
   return postJSON("/api/generate-marketing-copy", { opportunity, answers });
 }
+
+export function generateBusinessStarter(opportunity, answers) {
+  return postJSON("/api/generate-business-starter", { opportunity, answers });
+}
