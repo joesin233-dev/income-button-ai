@@ -101,3 +101,29 @@ Respond with ONLY valid JSON, no markdown fences, no preamble, matching this exa
   "productDescription": "a short description of the product or service, under 40 words, plain language"
 }`;
 }
+
+export function buildBusinessStarterPrompt(opportunity, answers) {
+  return `Someone wants to turn their income opportunity into a small, real business. Give them a simple starter kit, not a corporate business plan.
+
+Their opportunity: ${opportunity.title}
+Country: ${answers.country}
+Skills: ${answers.skills}
+Equipment available: ${(answers.equipment || []).join(", ") || "none listed"}
+
+Hard rules:
+- Use plain, simple language. No jargon like "business model," "value proposition," or "target demographic."
+- Everything must be startable with little or no money, using only what they already have.
+- Be specific to their country where it matters (local payment methods like mobile money, local ways people usually pay small businesses).
+- Be honest and encouraging, not hype-y or salesy.
+- Keep every section short and practical.
+
+Respond with ONLY valid JSON, no markdown fences, no preamble, matching this exact shape:
+{
+  "businessNames": ["3 short, simple name ideas for this business"],
+  "whatYouNeed": ["3-5 simple things needed to start, only from what they likely already have or can get free/cheap"],
+  "howToPrice": "2-3 sentences in plain language on how to price this simply, with a real example number in their local currency",
+  "howToGetPaid": "2-3 sentences on the simplest way to receive payment in their country (mobile money, cash, etc.)",
+  "firstThreeCustomers": "2-3 sentences with a concrete, doable idea for finding the first 3 paying customers",
+  "simpleRules": ["3-4 short, practical rules to keep the business honest and sustainable, e.g. around pricing, delivery time, or trust"]
+}`;
+}
