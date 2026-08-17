@@ -30,3 +30,7 @@ export function generateMarketingCopy(opportunity, answers) {
 export function generateBusinessStarter(opportunity, answers) {
   return postJSON("/api/generate-business-starter", { opportunity, answers });
 }
+
+export function generateCV(answers) {
+  return postJSON("/api/generate-cv", { answers });
+}
