@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   MapPin, DollarSign, Clock, Smartphone, Sparkles, CheckCircle2, Circle,
   TrendingUp, ArrowRight, Plus, Wrench, Car, Wifi, Laptop, Target, Flame,
-  ChevronRight, ThumbsUp, ThumbsDown, Rocket, CalendarClock, Hammer, Store,
+  ChevronRight, ThumbsUp, ThumbsDown, Rocket, CalendarClock, Hammer, Store, FileText,
 } from "lucide-react";
 
 import PowerButton from "./components/PowerButton.jsx";
@@ -13,7 +13,7 @@ import DifficultyBadge from "./components/DifficultyBadge.jsx";
 import TemplateCard from "./components/TemplateCard.jsx";
 import { SectionLabel, StatCard, EmptyNote } from "./components/Misc.jsx";
 
-import { generatePlan, generateActionPlan, generateMarketingCopy, generateBusinessStarter } from "./lib/api.js";
+import { generatePlan, generateActionPlan, generateMarketingCopy, generateBusinessStarter, generateCV } from "./lib/api.js";
 import { getState, setState as persistState } from "./lib/storage.js";
 
 const EQUIPMENT_OPTIONS = [
@@ -66,6 +66,10 @@ export default function App() {
   const [activeBusinessIndex, setActiveBusinessIndex] = useState(null);
   const [businessError, setBusinessError] = useState(null);
 
+  // CV Builder
+  const [cvData, setCvData] = useState(null);
+  const [cvError, setCvError] = useState(null);
+
   const chargeTimer = useRef(null);
 
   useEffect(() => {
@@ -85,6 +89,7 @@ export default function App() {
       if (saved.reflections) setReflections(saved.reflections);
       if (saved.marketingCopyMap) setMarketingCopyMap(saved.marketingCopyMap);
       if (saved.businessStarterMap) setBusinessStarterMap(saved.businessStarterMap);
+      if (saved.cvData) setCvData(saved.cvData);
       if (saved.plan) setScreen("results");
     })();
   }, []);
@@ -92,7 +97,7 @@ export default function App() {
   const persist = async (patch) => {
     await persistState({
       plan, tasks, earnings, answers, paymentMethod,
-      startedOpportunities, actionPlans, reflections, marketingCopyMap, businessStarterMap,
+      startedOpportunities, actionPlans, reflections, marketingCopyMap, businessStarterMap, cvData,
       ...patch,
     });
   };
@@ -152,9 +157,10 @@ export default function App() {
       setActionPlans({});
       setMarketingCopyMap({});
       setBusinessStarterMap({});
+      setCvData(null);
       setStep(0);
       setScreen("results");
-      await persist({ plan: result, tasks: newTasks, answers, startedOpportunities: [], actionPlans: {}, marketingCopyMap: {}, businessStarterMap: {} });
+      await persist({ plan: result, tasks: newTasks, answers, startedOpportunities: [], actionPlans: {}, marketingCopyMap: {}, businessStarterMap: {}, cvData: null });
     } catch (e) {
       console.error(e);
       setError(e.message || "Couldn't reach the AI just now. Your answers are saved — try again.");
@@ -254,6 +260,26 @@ export default function App() {
   const openBusiness = (index) => {
     setActiveBusinessIndex(index);
     setScreen("business");
+  };
+
+  // ---------------- CV Builder ----------------
+  const buildCV = async () => {
+    setCvError(null);
+    setScreen("cvLoading");
+    try {
+      const result = await generateCV(answers);
+      setCvData(result);
+      await persist({ cvData: result });
+      setScreen("cv");
+    } catch (e) {
+      console.error(e);
+      setCvError(e.message || "Couldn't build your CV just now. Try again.");
+      setScreen("results");
+    }
+  };
+
+  const openCV = () => {
+    setScreen("cv");
   };
 
   const addEarning = async () => {
@@ -451,6 +477,11 @@ export default function App() {
                 {businessError}
               </div>
             )}
+            {cvError && (
+              <div style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 12.5, color: "#FCA5A5" }}>
+                {cvError}
+              </div>
+            )}
 
             {plan.realityCheck && (
               <div style={{ marginBottom: 20 }}>
@@ -492,6 +523,27 @@ export default function App() {
             <div style={{ background: "#0F241B", border: "1px solid rgba(255,210,63,0.25)", borderRadius: 14, padding: 16, marginBottom: 22, display: "flex", gap: 12, alignItems: "flex-start" }}>
               <Target size={18} color="#FFD23F" style={{ marginTop: 2, flexShrink: 0 }} />
               <p style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>{plan.firstAction}</p>
+            </div>
+
+            <SectionLabel text="Your CV" />
+            <div style={{ background: "#0F241B", border: "1px solid rgba(94,197,197,0.35)", borderRadius: 14, padding: 16, marginBottom: 22 }}>
+              <p style={{ fontSize: 13, color: "#8AA396", lineHeight: 1.5, margin: "0 0 12px" }}>
+                Get a simple, ready-to-use CV built around your skills — good for local jobs and gigs.
+              </p>
+              <button
+                onClick={() => (cvData ? openCV() : buildCV())}
+                style={{
+                  width: "100%", padding: "12px", borderRadius: 12,
+                  border: "1px solid rgba(94,197,197,0.35)",
+                  background: cvData ? "rgba(94,197,197,0.1)" : "transparent",
+                  color: "#5EC5C5",
+                  fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 13.5,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer",
+                }}
+              >
+                <FileText size={15} />
+                {cvData ? "View your CV" : "Build my CV"}
+              </button>
             </div>
 
             <SectionLabel text="Best opportunities for you" />
@@ -626,6 +678,16 @@ export default function App() {
         </div>
       )}
 
+      {screen === "cvLoading" && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
+          <Spinner />
+          <p style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 16 }}>Building your CV…</p>
+          <p style={{ color: "#8AA396", fontSize: 13, maxWidth: 260, textAlign: "center" }}>
+            A clean summary, skills, and a ready template — coming up.
+          </p>
+        </div>
+      )}
+
       {screen === "marketing" && activeMarketingIndex !== null && marketingCopyMap[activeMarketingIndex] && plan && (
         <>
           <TopBar title="Your marketing copy" onBack={() => setScreen("results")} />
@@ -701,6 +763,67 @@ export default function App() {
                 <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#0F241B", border: "1px solid rgba(234,242,236,0.08)", borderRadius: 12, padding: 13 }}>
                   <Store size={15} color="#5EC5C5" style={{ flexShrink: 0, marginTop: 2 }} />
                   <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>{r}</span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setScreen("results")}
+              style={{ marginTop: 4, width: "100%", padding: "16px", borderRadius: 14, border: "none", background: "#22C55E", color: "#081410", fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer" }}
+            >
+              Back to your path <ArrowRight size={17} />
+            </button>
+          </div>
+          <BottomNav screen={screen} setScreen={setScreen} hasPlan={!!plan} />
+        </>
+      )}
+
+      {screen === "cv" && cvData && plan && (
+        <>
+          <TopBar title="Your CV" onBack={() => setScreen("results")} />
+          <div className="fu" style={{ flex: 1, padding: "6px 20px 24px" }}>
+            <SectionLabel text="Contact line" />
+            <div style={{ marginBottom: 22 }}>
+              <TemplateCard name="Top of your CV" content={cvData.contactTemplate} />
+            </div>
+
+            <SectionLabel text="Summary" />
+            <div style={{ marginBottom: 22 }}>
+              <TemplateCard name="About you" content={cvData.summary} />
+            </div>
+
+            <SectionLabel text="Skills" />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+              {cvData.skillsList?.map((s, i) => (
+                <span key={i} style={{ fontSize: 12.5, background: "#0F241B", border: "1px solid rgba(94,197,197,0.3)", padding: "7px 12px", borderRadius: 20, color: "#5EC5C5" }}>
+                  {s}
+                </span>
+              ))}
+            </div>
+
+            <SectionLabel text="Experience template" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
+              {cvData.experienceTemplate?.map((exp, i) => (
+                <div key={i} style={{ background: "#0F241B", border: "1px solid rgba(234,242,236,0.08)", borderRadius: 14, padding: 15 }}>
+                  <div style={{ fontFamily: "Space Grotesk", fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>{exp.placeholder}</div>
+                  {exp.bulletPoints?.map((b, j) => (
+                    <div key={j} style={{ fontSize: 12.5, color: "#C7D6CC", marginTop: 4, lineHeight: 1.5 }}>• {b}</div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <SectionLabel text="Education" />
+            <div style={{ marginBottom: 22 }}>
+              <TemplateCard name="Education line" content={cvData.educationTemplate} />
+            </div>
+
+            <SectionLabel text="Tips to get hired" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+              {cvData.tips?.map((t, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#0F241B", border: "1px solid rgba(234,242,236,0.08)", borderRadius: 12, padding: 13 }}>
+                  <FileText size={15} color="#5EC5C5" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span style={{ fontSize: 13.5, lineHeight: 1.5 }}>{t}</span>
                 </div>
               ))}
             </div>
