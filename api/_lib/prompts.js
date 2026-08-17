@@ -127,3 +127,32 @@ Respond with ONLY valid JSON, no markdown fences, no preamble, matching this exa
   "simpleRules": ["3-4 short, practical rules to keep the business honest and sustainable, e.g. around pricing, delivery time, or trust"]
 }`;
 }
+
+export function buildCVPrompt(answers) {
+  return `Someone needs a simple, clean CV/resume they can use to apply for local jobs or gigs. Give them a ready-to-use template built around their skills, not generic corporate CV filler.
+
+Their situation:
+- Country: ${answers.country}
+- Skills: ${answers.skills}
+- Equipment available: ${(answers.equipment || []).join(", ") || "none listed"}
+
+Hard rules:
+- Use plain, simple language. No corporate jargon like "synergize," "detail-oriented team player," or "results-driven professional."
+- Where personal details are needed (full name, phone number, past job names/dates, school name), use clear, simple placeholders in square brackets like [Your Name] or [Previous Job Title] — never invent fake specifics.
+- Build the skills and summary sections directly from what they told us about their actual skills.
+- Keep it realistic for someone applying for local jobs or gigs in their country, not a huge international corporation.
+- Short, clean, easy to copy into a document.
+
+Respond with ONLY valid JSON, no markdown fences, no preamble, matching this exact shape:
+{
+  "summary": "a short 2-3 sentence professional summary paragraph, written using their actual skills, with [Your Name] as a placeholder where needed",
+  "skillsList": ["5-8 specific skills phrased simply, drawn from what they told us"],
+  "experienceTemplate": [
+    { "placeholder": "[Previous Job Title] at [Company Name]", "bulletPoints": ["2-3 example achievement/duty bullet points they can edit to match their real experience"] }
+  ],
+  "educationTemplate": "one line template for education, e.g. '[Qualification/Course], [School Name], [Year]'",
+  "contactTemplate": "one line template for contact info, e.g. '[Your Name] | [Phone Number] | [Email or WhatsApp]'",
+  "tips": ["2-3 short, practical tips for using this CV to actually get hired locally"]
+}
+Give exactly 2 entries in "experienceTemplate" so they have a clear example to duplicate for more jobs.`;
+}
